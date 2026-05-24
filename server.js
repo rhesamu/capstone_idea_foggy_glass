@@ -9,19 +9,19 @@ const io = new Server(server, { cors: { origin: '*' } });
 
 app.use(express.static(path.join(__dirname)));
 
-const room = { mac: null, ipad: null };
-const otherRole = (r) => (r === 'mac' ? 'ipad' : 'mac');
+const room = { device1: null, device2: null };
+const otherRole = (r) => (r === 'device1' ? 'device2' : 'device1');
 
 io.on('connection', (socket) => {
   socket.on('join', () => {
-    const role = !room.mac ? 'mac' : !room.ipad ? 'ipad' : null;
+    const role = !room.device1 ? 'device1' : !room.device2 ? 'device2' : null;
     if (!role) {
       socket.emit('room-full');
       return;
     }
     room[role] = socket.id;
     socket.data.role = role;
-    socket.emit('role-assigned', { role, shouldInitiate: role === 'mac' });
+    socket.emit('role-assigned', { role, shouldInitiate: role === 'device1' });
     const other = room[otherRole(role)];
     if (other) io.to(other).emit('peer-joined');
   });

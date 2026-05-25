@@ -18,8 +18,13 @@ let maskLayer;
 let maskedEffectLayer;
 let fogTexture1;
 let fogTexture2;
+let iconHint;
+
 let wipeMarks = [];
 let activeWipeTrail = null;
+
+let fogOpacityScale = 0.45;
+let hintOpacity     = 0.0;
 
 const WIPE_SIZE_RATIO = 0.062;
 const WIPE_CORE_RATIO = 0.58;
@@ -36,6 +41,7 @@ const SMEAR_OFFSETS = [
 function preload() {
   fogTexture1 = loadImage("images/fog 01.jpg");
   fogTexture2 = loadImage("images/fog 02.jpg");
+  iconHint = loadImage("images/slide-left-right-icon.png");
 }
 
 function setup() {
@@ -184,7 +190,10 @@ function rebuildLayers() {
 
 function draw() {
   const cameraReady = hasCameraFrame();
-
+  const isIdle = wipeMarks.length === 0;
+  fogOpacityScale = lerp(fogOpacityScale, isIdle ? 0.8 : 1.0, 0.03);
+  // This fades in slowly (0.08) but snaps away quickly (0.12) the moment a wipe starts — which tends to feel more responsive.
+  hintOpacity = lerp(hintOpacity, isIdle ? 1.0 : 0.0, isIdle ? 0.08 : 0.12);
   background(215, 224, 230);
 
   if (cameraReady) {
@@ -202,6 +211,34 @@ function draw() {
   if (!cameraReady) {
     drawCameraPrompt();
   }
+
+  drawIdleHint();
+}
+
+function drawIdleHint() {
+  if (hintOpacity < 0.01) return;
+
+  const t      = frameCount * 0.08;                    // ~1.2 wipe cycles/sec at 30 fps
+  const swingX = sin(t) * min(width, height) * 0.12;  // horizontal travel ±12% of screen
+  const tilt   = sin(t) * 0.3;                         // tilts in the direction of travel
+  const pulse  = 0.75 + 0.25 * abs(sin(t));              // brighter at the extremes of each swing
+  const alpha  = hintOpacity * pulse * 255;
+
+
+  push();
+  translate(width / 2 + swingX, height / 2);
+  rotate(tilt);
+  // textAlign(CENTER, CENTER);
+  // textSize(min(width, height) * 0.13);
+  // fill(255, 255, 255, alpha);
+  // noStroke();
+  // text('👆', 0, 0);
+  const sz = min(width, height) * 0.13;
+  tint(255, alpha);          // applies opacity to the image
+  image(iconHint, -sz / 2, -sz / 2, sz, sz);
+  noTint();                  // reset so nothing else is tinted
+
+  pop();
 }
 
 function hasCameraFrame() {
@@ -376,13 +413,13 @@ function drawAtmosphereWash(target) {
   const ctx = target.drawingContext;
 
   target.noStroke();
-  target.fill(248, 251, 254, 148);
+  target.fill(248, 251, 254, 148 * fogOpacityScale);
   target.rect(0, 0, width, height);
 
-  target.fill(255, 255, 255, 55);
+  target.fill(255, 255, 255, 55 * fogOpacityScale);
   target.rect(0, 0, width, height * 0.38);
 
-  target.fill(148, 178, 205, 46);
+  target.fill(148, 178, 205, 46 * fogOpacityScale);
   target.rect(0, height * 0.62, width, height * 0.38);
 
   ctx.save();
@@ -396,7 +433,7 @@ function drawAtmosphereWash(target) {
     const w = map(noise(i * 0.11, 52), 0, 1, width * 0.4, width * 0.92);
     const h = map(noise(i * 0.29, 72), 0, 1, height * 0.2, height * 0.5);
 
-    target.fill(255, 255, 255, 35);
+    target.fill(255, 255, 255, 35 * fogOpacityScale);
     target.ellipse(x, y, w, h);
   }
 
@@ -438,10 +475,10 @@ function drawAnimatedFogTextures(target) {
   target.push();
   target.blendMode(SCREEN);
 
-  target.tint(235, 240, 248, 92);
+  target.tint(235, 240, 248, 92 * fogOpacityScale);
   target.image(fogTexture1, -padX + pan1X, -padY + pan1Y, width * oversize, height * oversize);
 
-  target.tint(255, 255, 255, 68);
+  target.tint(255, 255, 255, 68 * fogOpacityScale);
   target.image(fogTexture2, -padX + pan2X, -padY + pan2Y, width * oversize, height * oversize);
 
   target.noTint();
